@@ -1,9 +1,11 @@
 import sys
+import os
+import argparse 
 import itertools
 from collections import defaultdict, OrderedDict
 import numpy as np
 
-hits_file = sys.argv[1]
+
 
 def iter_queries(fname):
     for line in open(fname):
@@ -20,8 +22,8 @@ def motif_overlap(x, y):
     return max(0, min(x[1], y[1]) - max(x[0], y[0]) + 1)
 
 def connected_components(l):
-    """ groups connected elements in the graph, 
-        returning one group for each unconnected set """
+    """ it groups all connected elements in the graph, 
+        returning one group for each unconnected set of connected elements """
     out = []
     while len(l)>0:
         first, *rest = l
@@ -41,32 +43,30 @@ def connected_components(l):
         l = rest
     return out
 
-def motif_id():
-    global HSP_COUNTER
-    HSP_COUNTER += 1
-    return HSP_COUNTER
 
-MIN_EVALUE = 0.001
-MIN_ALG_LENGTH = 10
-MIN_OVERLAP = float(sys.argv[2])
-HSP_COUNTER = 0
-HSP = defaultdict(list) # High Scoring Pair 
-
-
-if __name__ == '__main__':
-
-
+    
+def main(args):
+    HSP = defaultdict(list) # store High Scoring Pairs (HSPs)
+    MIN_EVALUE = 0.001
+    MIN_ALG_LENGTH = 10
+    MIN_OVERLAP = args.min_overlap
+    HITS_FILE = args.input 
+    
+    
+    HSP_COUNTER = 0 
     # First, stores every High Score Pair (HSP) observed for each sequence, reading the all-against-all
     # BLAST matrix. Each HSP is treated as a hit in a potential MOTIF. 
-    for query, group in itertools.groupby(iter_queries(hits_file), lambda x: x[0]):
+    for query, group in itertools.groupby(iter_queries(HITS_FILE), lambda x: x[0]):
         for query, hit, evalue, score, length, qstart, qend, sstart, send in group:
             evalue = float(evalue)
             length, qstart, qend, sstart, send = map(int, [length, qstart, qend, sstart, send])
 
             if query == hit or length < MIN_ALG_LENGTH or evalue > MIN_EVALUE:
                 continue
-            qid = motif_id()
-            sid = motif_id()
+            qid = HSP_COUNTER
+            HSP_COUNTER += 1 
+            sid = HSP_COUNTER 
+            HSP_COUNTER += 1 
 
             HSP[query].append([qstart, qend, qend-qstart, qid, sid])
             HSP[hit].append([sstart, send, send-sstart, sid, qid])
@@ -108,8 +108,7 @@ if __name__ == '__main__':
 
         for c in consolidated_motifs:            
             all_motifs.append([set(((c[0], c[1], c[2]),)), c[3]])
-        
-    
+       
     # At this point, "all_motifs" contain a list of motifs per sequence. Each
     # seq-motif entry provides also a set of matching regions (HSPs) in other
     # seqs, so we have a graph conecting consolidated per-sequence HSPs. The
@@ -138,6 +137,15 @@ if __name__ == '__main__':
     for name, arch in sorted(archs, key=lambda x: x[1]):
         archcounter[arch].add(name)
     for arch, keys in sorted(archcounter.items(), key=lambda x: len(x[1])):
-        print ('Arch:', arch, len(keys), sep="\t")
+        print ('Arch:', arch, len(keys), keys, sep="\t")
 
     # ToDo: Extract sequences from motifs
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", dest='input', required=True, 
+                         help="All-against-all matrix file")
+    parser.add_argument("--min_overlap", dest="min_overlap", default=0.75, type=float,
+                        help="Min overlap between two HSPs from the same sequence to be considered the same motif and therfore be merged. ")
+    args = parser.parse_args()
+    main(args)
