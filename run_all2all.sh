@@ -6,7 +6,7 @@ if [[ $# -eq 0 ]] ; then
 fi
 
 TARGET_FASTA=`realpath $1`
-CORES = $2
+CORES=$2
 #../diamond makedb --in cdhit_cluster_reps.faa -d cdhit_cluster_reps.dmnd
 #../diamond blastp -q cdhit_cluster_reps.faa -d cdhit_cluster_reps.dmnd -o cdhit_cluster_hits.dmnd.m8 --sallseqid -k 0 -f 6 qseqid sseqid evalue bitscore length qstart qend sstart send -e 0.1 --more-sensitive --comp-based-stats 0
 
