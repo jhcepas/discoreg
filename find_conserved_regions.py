@@ -37,7 +37,7 @@ def connected_components(l):
             for r in rest:
                 if len(first[-1].intersection(r[-1]))>0:
                     first[-1] |= r[-1]
-                    first[-2] |= r[-2]
+                    first[-2] |= r[-2]  
                 else:
                     rest2.append(r)
             rest = rest2
@@ -108,9 +108,12 @@ def consolidate_hsps_small(HSP, MIN_OVERLAP):
                 length = c[1] - c[0]
                 overlap = float(motif_overlap(h, c))
                 if overlap / length >= MIN_OVERLAP:
-                    # if the HSPs are mergable, expand the envelope of the
-                    # sequence region accordingly 
-                    #start, end = motif_sum(h[0:2], c[0:2])
+                    # if the HSPs are mergable, we could expand the envelope of
+                    # the sequence region accordingly, but that leads to the
+                    # undesired effect of having full-genelength-HSPs when two
+                    # very close sequences are present. 
+                    # start, end = motif_sum(h[0:2], c[0:2])
+                    
                     start, end = h[0:2]
                     c[0] = start
                     c[1] = end
@@ -190,6 +193,7 @@ def main(args):
 
     print("nseqs", len(seq2blocks))
     # ToDo: Extract sequences from motifs
+    
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
