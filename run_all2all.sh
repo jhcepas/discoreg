@@ -15,4 +15,4 @@ CORES=$2
 #~/mmseqs convertalis  cdhit_cluster_reps.db cdhit_cluster_reps.db cdhit_cluster_hits.mmseqs.db cdhit_cluster_hits.mmseqs.m8  --format-output query,target,evalue,bits,alnlen,qstart,qend,tstart,tend
 
 makeblastdb -in $TARGET_FASTA -dbtype prot
-blastp -num_threads $CORES -query $TARGET_FASTA -db $TARGET_FASTA -outfmt "6 qseqid sseqid evalue bitscore length qstart qend sstart send"  > $TARGET_FASTA.blast.m8
+blastp -num_threads $CORES -query $TARGET_FASTA -db $TARGET_FASTA -outfmt "6 qseqid sseqid evalue bitscore length pident qstart qend sstart send"  > $TARGET_FASTA.blast.m8

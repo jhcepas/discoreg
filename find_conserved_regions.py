@@ -5,6 +5,7 @@ import itertools
 from collections import defaultdict, OrderedDict
 import numpy as np
 import logging 
+from ete3 import SeqGroup
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger()
@@ -134,20 +135,24 @@ def consolidate_hsps_small(HSP, MIN_OVERLAP):
 
 def main(args):
     HSP = defaultdict(list) # store High Scoring Pairs (HSPs)
-    MIN_EVALUE = 0.001
-    MIN_ALG_LENGTH = 3
+    MIN_EVALUE = args.min_evalue
+    MIN_ALG_LENGTH = args.min_alg_length
     MIN_OVERLAP = args.min_overlap
+    MIN_SCORE = args.min_score
+    MIN_PIDENT = args.min_ident
     HITS_FILE = args.input 
         
     HSP_COUNTER = 0 
     # First, stores every High Score Pair (HSP) observed for each sequence, reading the all-against-all
     # BLAST matrix. Each HSP is treated as a hit in a potential MOTIF. 
     for query, group in itertools.groupby(iter_queries(HITS_FILE), lambda x: x[0]):
-        for query, hit, evalue, score, length, qstart, qend, sstart, send in group:
+        for query, hit, evalue, score, length, pident, qstart, qend, sstart, send in group:
             evalue = float(evalue)
+            score = float(score)
+            pident = float(pident)
             length, qstart, qend, sstart, send = map(int, [length, qstart, qend, sstart, send])
 
-            if query == hit or length < MIN_ALG_LENGTH or evalue > MIN_EVALUE:
+            if query == hit or length < MIN_ALG_LENGTH or evalue > MIN_EVALUE or score < MIN_SCORE or pident < MIN_PIDENT:
                 continue
             qid = HSP_COUNTER
             HSP_COUNTER += 1 
@@ -170,8 +175,10 @@ def main(args):
     # sequences. 
     blocks  = connected_components(all_motifs)
     for blockid, o in enumerate(blocks):
+        coords = [(x[1]-x[0], x[2], x[0],x[1]) for x in o[0]]
+        coords.sort(reverse=True)
         print ('MOTIF BLOCK:', blockid, "nseqs:", len(set([x[2] for x in o[0]])), "min.length:", np.min([x[1]-x[0] for x in o[0]]),
-            "avg.length:", np.mean([x[1]-x[0] for x in o[0]]),  list(set([x[2] for x in o[0]]))[:4], sep="\t")
+            "avg.length:", np.mean([x[1]-x[0] for x in o[0]]),  "largest:", coords[0][1:4], coords[-1][1:4],  list(set([x[2] for x in o[0]]))[:4], sep="\t")
 
     # We can now analyze the motif/block composition of each seq, and group
     # sequences based on similar block architecture
@@ -192,15 +199,38 @@ def main(args):
         print ('Arch:', arch, len(keys), list(keys)[:5], sep="\t")
 
     print("nseqs", len(seq2blocks))
-    # ToDo: Extract sequences from motifs
     
+    if args.dump_motif_seqs:
+        seqs = SeqGroup(args.dump_motif_seqs)
+        for blockid, o in enumerate(blocks):
+            coords = [(x[1]-x[0], x[2], x[0],x[1]) for x in o[0]]
+            coords.sort(reverse=True)
+            with open('motif_%s.faa' %blockid, "w") as FASTA: 
+                for m_len, seqname, m_start, m_end in coords: 
+                    FASTA.write(">%s\n%s")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", dest='input', required=True, 
                          help="All-against-all matrix file")
-    parser.add_argument("-f", dest="fasta", help="file containing original sequences")
+        
     parser.add_argument("--min_overlap", dest="min_overlap", default=0.75, type=float,
                         help="Min overlap between two HSPs from the same sequence to be considered the same motif and therfore be merged. ")
+    
+    parser.add_argument("--min_evalue", dest="min_evalue", default=10e-5, type=float,
+                        help="Min e-value for an entry to be considered as significant  ")
+    parser.add_argument("--min_score", dest="min_score", default=20, type=float,
+                        help="Min score for an entry to be considered as significant  ")
+    
+    parser.add_argument("--min_alg_length", dest="min_alg_length", default=10, type=float,
+                        help="Min alignment length for an entry to be considered relevant for the clustering")
+
+    parser.add_argument("--min_ident", dest="min_ident", default=0, type=float,
+                        help="Min percent of alignment identity for an entry to be considered relevant for the clustering")
+
+    parser.add_argument("--dump_motif_seqs", dest="dump_motif_seqs",  
+                        help="writes a fasta file per motif found reading from the provided set of original sequences")
+    
     args = parser.parse_args()
     main(args)
